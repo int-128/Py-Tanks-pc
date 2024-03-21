@@ -224,6 +224,7 @@ b1 = b2 = True
 wait = 0.5
 timeLastBump1 = timeLastBump2 = clock()
 pause = False
+texture_redraw_options = eval(config0['General']['textureredrawoptions'])
 
 lang = readLngFile(config['fallbacklng'], 'Py Tanks')
 lang.update(readLngFile(lngFileName, 'Py Tanks'))
@@ -480,7 +481,7 @@ def move_block(tank, block, posx, posy, direction, texture = None):
         if UseUnstdTex:
             texture.despawned = False
             texture.despawn()
-            _moveBlockTexture(block, posx, posy, direction, texture, 3, 16)
+            _moveBlockTexture(block, posx, posy, direction, texture, *texture_redraw_options)
         posx += direction[0] * SEG_SIZE * 3
         posy += direction[1] * SEG_SIZE * 3
         root.after(50, move_block, tank, block, posx, posy, direction, texture)
@@ -655,7 +656,7 @@ class Tank:
                             return
             if UseUnstdTex and bv1 and bv2 and bv3:
                 self.b2 = True
-                self._moveTexture(3, 16)
+                self._moveTexture(*texture_redraw_options)
                     
         elif event in self.fireMapping:
             if self.reload != -1:
