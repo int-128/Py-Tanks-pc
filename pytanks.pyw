@@ -492,12 +492,15 @@ def move_block(tank, block, posx, posy, direction, texture = None):
         tank.b = True
         return
 
+def _calc_pos_1(posx, posy, direction, n, i):
+    t = (posx, posy)
+    return (t[j] - direction[j] * 3 * SEG_SIZE * (n - i - 1) / n for j in range(len(t)))
+
 def _moveBlockTexture(block, posx, posy, direction, texture, n, d, i=0, texture_canvas_id = None):
     c.delete(texture_canvas_id)
     if i >= n or texture.despawned:
         return
-    x, y = posx, posy
-    x, y = ((x, y)[j] - direction[j] * 3 * SEG_SIZE * (n - i - 1) / n for j in range(len((x, y))))
+    x, y = _calc_pos_1(posx, posy, direction, n, i)
     texture_canvas_id = texture.spawnCopy(x, y, direction)
     root.after(d, _moveBlockTexture, block, posx, posy, direction, texture, n, d, i + 1, texture_canvas_id)
 
@@ -561,6 +564,10 @@ class Bar:
             ln = min((clock() - self.tank.last_shoot_time) / self.tank.reload, 1)
         self.reload_bar = self.canvas.create_rectangle(x + self.border_width, y + 2 * self.border_width + self.hp_bar_height, x + self.border_width + round(max_width * ln), y + 2 * self.border_width + self.hp_bar_height + self.reload_bar_height, fill = self.reload_bar_current_color, outline = '')
 
+
+def _cals_pos_2(x, y, direction, n, i):
+    t = (x, y)
+    return (t[j] - direction[j] * SEG_SIZE * (n - i - 1) / n for j in range(len(t)))
 
 class Tank:
     def __init__(self, segments, mapping, fireMapping, vector, team, hp, hpWidget, speed, texture = None, bulletTexture = '', color = '#000000', bar = None, reload = -1):
@@ -671,13 +678,15 @@ class Tank:
             self.bar.update()
 
 
-    def _moveTexture(self, n, d, i=0):
+    def _moveTexture(self, n, d, i=0, chk = None):
         if i >= n or not self.segments:
             self.b2 = False
             return
         texture = self.texture
-        x, y = c.coords(self.segments[0].instance)[:2]
-        x, y = ((x, y)[j] - self.vector[j] * SEG_SIZE * (n - i - 1) / n for j in range(len((x, y))))
+        if chk != None and (texture.x != chk[0] or texture.y != chk[1] or texture.d != chk[2]):
+            self.b2 = False
+            return
+        x, y = _cals_pos_2(*c.coords(self.segments[0].instance)[:2], self.vector, n, i)
         self.bar.update(x, y)
         if self.vector == (-1, 0):
             texture.spawn(x - SEG_SIZE, y, self.vector)
@@ -685,7 +694,8 @@ class Tank:
             texture.spawn(x, y - SEG_SIZE, self.vector)
         else:
             texture.spawn(x, y, self.vector)
-        root.after(d, self._moveTexture, n, d, i + 1)
+        chk = (texture.x, texture.y, texture.d)
+        root.after(d, self._moveTexture, n, d, i + 1, chk)
 
     def _respawn(self):
         self.vector = self.respawnVector
@@ -1450,6 +1460,11 @@ def KeyReleaseController(event):
 class TransparentSegment:
     def __init__(self, c, x, y, color):
         self.instance = c.create_rectangle(x, y, x+SEG_SIZE, y+SEG_SIZE, outline='')
+
+
+if eval(config0['Debug']['show_tank_segments']):
+    _Segment = Segment
+    TransparentSegment = lambda c, x, y, color: _Segment(c, x, y, '')
 
 
 texture = Texture
