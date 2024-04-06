@@ -91,7 +91,7 @@ rotatetank="Повернуть танк"
 team="Команда: "
 hpbartype="Показатель брони: "
 hpbarnew="Полоса"
-hpbarstd="Числа"
+hpbarstd="Число"
 reload="Перезарядка: "
 
 [Menu]

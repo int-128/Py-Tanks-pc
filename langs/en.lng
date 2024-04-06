@@ -91,7 +91,7 @@ rotatetank="Rotate tank"
 team="Team: "
 hpbartype="Armor indicator: "
 hpbarnew="Bar"
-hpbarstd="Numbers"
+hpbarstd="Number"
 reload="Reload: "
 
 [Menu]
