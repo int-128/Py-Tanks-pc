@@ -1831,4 +1831,16 @@ if eval(config1['NetworkPlay']['enabled']):
 
 root.deiconify()
 KeyController()
-root.mainloop()
+
+if not eval(config1['FrameStabilization']['enabled']):
+    root.mainloop()
+else:
+    texture_redraw_options = eval(config1['FrameStabilization']['texture_redraw_options'])
+    update_delay = eval(config1['FrameStabilization']['update_delay'])
+    
+    last_update_time = time.perf_counter()
+    root.update()
+    while True:
+        time.sleep(max(0, update_delay - (time.perf_counter() - last_update_time)))
+        last_update_time = time.perf_counter()
+        root.update()
