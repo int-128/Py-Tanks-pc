@@ -90,8 +90,8 @@ hpsampletext="HP"
 rotatetank="Rotate tank"
 team="Team: "
 hpbartype="Armor indicator: "
-hpbarnew="New"
-hpbarstd="Old"
+hpbarnew="Bar"
+hpbarstd="Numbers"
 reload="Reload: "
 
 [Menu]

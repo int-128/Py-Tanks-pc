@@ -90,8 +90,8 @@ hpsampletext="HP"
 rotatetank="Повернуть танк"
 team="Команда: "
 hpbartype="Показатель брони: "
-hpbarnew="Новый"
-hpbarstd="Старый"
+hpbarnew="Полоса"
+hpbarstd="Числа"
 reload="Перезарядка: "
 
 [Menu]
