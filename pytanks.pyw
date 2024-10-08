@@ -32,6 +32,9 @@ if eval(config0.get('General', 'redirectstderr', fallback = 'True')):
     enableCrachHandler = False
 
 
+_is_main = __name__ == '__main__'
+
+
 if __name__ == '__main__' and enableCrachHandler:
     try:
         import crashhandler
@@ -52,6 +55,7 @@ import traceback
 import socket as sckt
 import threading as thrd
 import time
+import tkinter as tk
 
 
 if not hasattr(PhotoImage, 'transparency_get'):
@@ -95,7 +99,7 @@ def MessageBox(code, title, text, style):
 
 def terminate(master, code = 0):
     master.destroy()
-    os._exit(code)
+    sys.exit(code)
 
 ver = [int(el) for el in sys.version.split()[0].split('.')[:2]]
 if ver[0] * 100 + ver[1] < 307:
@@ -183,8 +187,11 @@ elif colorScheme == 2:
                 kw['background'] = _background
             tkinter.Frame.__init__(self, master, cnf, **kw)
 
-root = Tk()
-root.withdraw()
+
+def _init0():
+    global root
+    root = Tk()
+    root.withdraw()
 
 
 def close():
@@ -193,9 +200,12 @@ def close():
     terminate(root)
 
 
-if colorScheme == 3:
-    style = Style(root)
-    style.theme_use(config1['General']['ttkthemename'])
+def _init1():
+    global root
+    if colorScheme == 3:
+        style = Style(root)
+        style.theme_use(config1['General']['ttkthemename'])
+
 
 settings.readline()
 WIDTH, HEIGHT = map(int, settings.readline().split())
@@ -208,28 +218,32 @@ backgroundImageFileName = settings.readline().rstrip('\n')
 background = settings.readline().rstrip('\n')
 WALL_COLOR = settings.readline().rstrip('\n')
 mapName = settings.readline().rstrip('\n')
-settings.readline()
-settings.readline()
-settings.readline()
-settings.readline()
-settings.readline()
-settings.readline()
+for _ in range(6): settings.readline()
 walltextureFile = settings.readline().rstrip('\n')
 displayMode = bool(int(settings.readline().rstrip('\n')))
 settings.readline()
 settings.close()
 
-IN_GAME = True
-b1 = b2 = True
-wait = 0.5
-timeLastBump1 = timeLastBump2 = clock()
-pause = False
+
+def _init2():
+    global IN_GAME, wait, pause
+    IN_GAME = True
+#b1 = b2 = True
+    wait = 0.5
+#timeLastBump1 = timeLastBump2 = clock()
+    pause = False
+
+
 texture_redraw_options = eval(config0['General']['textureredrawoptions'])
 
 lang = readLngFile(config['fallbacklng'], 'Py Tanks')
 lang.update(readLngFile(lngFileName, 'Py Tanks'))
 
-root.title(lang['title'])
+
+def _init3():
+    global root
+    root.title(lang['title'])
+
 
 def rotate_image(img, direction):
     w, h = img.width(), img.height()
@@ -536,7 +550,7 @@ class Bar:
         self.hp_bar_current_color = rgb_to_tk_color([round((self.hp_bar_color[i] * self.hp_bar_color[3] + tank_color[i] * (255 - self.hp_bar_color[3])) / 255) for i in range(3)])
         self.reload_bar_current_color = rgb_to_tk_color([round((self.reload_bar_color[i] * self.reload_bar_color[3] + tank_color[i] * (255 - self.reload_bar_color[3])) / 255) for i in range(3)])
 
-    def update(self, x = None, y = None):
+    def _update(self, x = None, y = None):
         if x == None or y == None:
             x, y = self.canvas.coords(self.tank.segments[0].instance)[:2]
         if self.bar != None:
@@ -563,6 +577,12 @@ class Bar:
         else:
             ln = min((clock() - self.tank.last_shoot_time) / self.tank.reload, 1)
         self.reload_bar = self.canvas.create_rectangle(x + self.border_width, y + 2 * self.border_width + self.hp_bar_height, x + self.border_width + round(max_width * ln), y + 2 * self.border_width + self.hp_bar_height + self.reload_bar_height, fill = self.reload_bar_current_color, outline = '')
+
+    def update(self, x = None, y = None):
+        try:
+            self._update(x, y)
+        except IndexError:
+            pass
 
 
 def _cals_pos_2(x, y, direction, n, i):
@@ -664,6 +684,7 @@ class Tank:
             if UseUnstdTex and bv1 and bv2 and bv3:
                 self.b2 = True
                 self._moveTexture(*texture_redraw_options)
+            self._coords = c.coords(self.segments[0].instance)[:2]
                     
         elif event in self.fireMapping:
             if self.reload != -1:
@@ -711,6 +732,7 @@ class Tank:
         if self.ai:
             self.ai.destruction()
         self.bar.update()
+        self._coords = self.respawnCoords[0][:2]
 
     def respawn(self, __respawn = True):
         if self.hp > 0:
@@ -735,22 +757,25 @@ class Tank:
         self.respawnVector = vector
         _respawnCoords = self.respawnCoords
         spawn_coords = [None] * 9
-        _respawnCoords = spawn_coords
+        self.respawnCoords = spawn_coords
         for i in range(3):
             for j in range(3):
-                segments[i * 3 + j] = ((x + i) * SEG_SIZE, (y + j) * SEG_SIZE, (x + i) * SEG_SIZE + SEG_SIZE, (y + j) * SEG_SIZE + SEG_SIZE)
+                spawn_coords[i * 3 + j] = ((x + i) * SEG_SIZE, (y + j) * SEG_SIZE, (x + i) * SEG_SIZE + SEG_SIZE, (y + j) * SEG_SIZE + SEG_SIZE)
         spawn_coords.insert(6, None)
         if vector == (-1, 0):
-            segments[6] = ((x - 1) * SEG_SIZE, (y + 1) * SEG_SIZE, (x - 1) * SEG_SIZE + SEG_SIZE, (y + 1) * SEG_SIZE + SEG_SIZE)
+            spawn_coords[6] = ((x - 1) * SEG_SIZE, (y + 1) * SEG_SIZE, (x - 1) * SEG_SIZE + SEG_SIZE, (y + 1) * SEG_SIZE + SEG_SIZE)
         elif vector == (1, 0):
-            segments[6] = ((x + 3) * SEG_SIZE, (y + 1) * SEG_SIZE, (x + 3) * SEG_SIZE + SEG_SIZE, (y + 1) * SEG_SIZE + SEG_SIZE)
+            spawn_coords[6] = ((x + 3) * SEG_SIZE, (y + 1) * SEG_SIZE, (x + 3) * SEG_SIZE + SEG_SIZE, (y + 1) * SEG_SIZE + SEG_SIZE)
         elif vector == (0, -1):
-            segments[6] = ((x + 1) * SEG_SIZE, (y - 1) * SEG_SIZE, (x + 1) * SEG_SIZE + SEG_SIZE, (y - 1) * SEG_SIZE + SEG_SIZE)
+            spawn_coords[6] = ((x + 1) * SEG_SIZE, (y - 1) * SEG_SIZE, (x + 1) * SEG_SIZE + SEG_SIZE, (y - 1) * SEG_SIZE + SEG_SIZE)
         elif vector == (0, 1):
-            segments[6] = ((x + 1) * SEG_SIZE, (y + 3) * SEG_SIZE, (x + 1) * SEG_SIZE + SEG_SIZE, (y + 3) * SEG_SIZE + SEG_SIZE)
+            spawn_coords[6] = ((x + 1) * SEG_SIZE, (y + 3) * SEG_SIZE, (x + 1) * SEG_SIZE + SEG_SIZE, (y + 3) * SEG_SIZE + SEG_SIZE)
         self._respawn()
         self.respawnVector = _respawnVector
         self.respawnCoords = _respawnCoords
+
+    def get_coords(self):
+        return [el // SEG_SIZE for el in self._coords]
 
 
 class F10Menu():
@@ -770,21 +795,27 @@ class F10Menu():
             self.image = ImageTk.PhotoImage(image = img)
         except NameError:
             self.image = None
+        except AttributeError:
+            self.image = None
         self.imgCnvF = False
 
     def display(self):
         self.imgCnvF = True
         self.imgCnv = self.canvas.create_image(0, 0, anchor = 'nw', image = self.image)
         self.frame.place(relx = 0.5, rely = 0.5, anchor = 'center')
+        self._update = True
         self.window.after(100, self._updateImg)
 
     def _updateImg(self):
+        if not self._update:
+            return
         if self.imgCnvF:
             self.canvas.delete(self.imgCnv)
         self.imgCnvF = True
         self.imgCnv = self.canvas.create_image(0, 0, anchor = 'nw', image = self.image)
 
     def close(self):
+        self._update = False
         self.frame.place_forget()
         if self.imgCnvF:
             self.canvas.delete(self.imgCnv)
@@ -1131,8 +1162,10 @@ class PTServer(RemoteEventController):
     def _make_s_pkg(self, tankid):
         enc_msg_type = 'S'.encode('utf-8')
         sync_list = []
-        tank = tankList[tankid_to_index[tankid]][0]
-        x, y = [el // SEG_SIZE for el in c.coords(tank.segments[0].instance)[:2]]
+        tank = tankList[tankid_to_index_2[tankid]][0]
+        if type(tank) != Tank:
+            tank = tank.tank
+        x, y = tank.get_coords()
         sync_list.append((x, y))
         sync_list.append(tank.vector)
         sync_list.append(tank.hp)
@@ -1144,7 +1177,8 @@ class PTServer(RemoteEventController):
         return msg
 
     def _sync_game(self):
-        for tankid in tankList:
+        for el in tankList:
+            tankid = el[0].id
             msg = self._make_s_pkg(tankid)
             for client in self.udp_addresses:
                 self.udp_socket.sendto(msg, self.udp_addresses[client])
@@ -1322,7 +1356,21 @@ class PTClient(RemoteEventController):
                 self.tank_shoot[tankid] = True
             elif action == '-Shoot':
                 self.tank_shoot[tankid] = False
-        pass
+        elif msgt == 'S':
+            i += 1
+            etidl = data[i]
+            i += 1
+            enc_tank_id = data[i:i+etidl]
+            i += etidl
+            esll = data[i]
+            i += 1
+            enc_sl = data[i:i+esll]
+            i += esll
+            tankid = enc_tank_id.decode('utf-8')
+            sync_list = eval(enc_sl.decode('utf-8'))
+            tank = tankList[tankid_to_index_2[tankid]][0]
+            tank.hp = sync_list[2]
+            tank.spawn(*sync_list[0], sync_list[1])
 
     def _send_action_to_server(self, action):
         msg = ('{tankid};{action}'.format(tankid = self.id, action = action)).encode('utf-8')
@@ -1337,6 +1385,21 @@ class PTClient(RemoteEventController):
         thread = thrd.Thread(target = self._action_getter, args = [])
         thread.start()
         self._send_action_to_server('None')
+
+    def kpc_(self, keysym):
+        tank = tankList[tankid_to_index_2[self.id]][0]
+        if keysym in tank.mapping:
+            self._send_action_to_server(dta[tank.mapping[keysym]])
+        if keysym in tank.fireMapping:
+            self.tank_shoot_keysym = keysym
+            self._send_action_to_server('Shoot')
+
+    def krc_(self, keysym):
+        tank = tankList[tankid_to_index_2[self.id]][0]
+        if keysym in tank.mapping and self.tank_actions[tank.id] == dta[tank.mapping[keysym]]:
+            self._send_action_to_server('None')
+        if keysym in tank.fireMapping and self.tank_shoot_keysym == keysym:
+            self._send_action_to_server('-Shoot')
 
     pass
 
@@ -1356,7 +1419,9 @@ else:
 #=========================================================================================================
 
 
-tankList = []
+def _init4():
+    global tankList
+    tankList = []
 
 
 def KeyController():
@@ -1471,9 +1536,22 @@ texture = Texture
 
 
 def restart():
-    global config
-    startfile(config['pytanks'])
-    terminate(root)
+    #global config
+    #startfile(config['pytanks'])
+    #terminate(root)
+    root.destroy()
+    main()
+
+
+#'''
+def main():
+    
+    _init0()
+    _init1()
+    _init2()
+    _init3()
+    _init4()
+    main_source = '''
 
 root.protocol("WM_DELETE_WINDOW", close)
 
@@ -1482,6 +1560,7 @@ if os.name == 'nt':
 
 pbwindow = Toplevel(root)
 pbwindow.withdraw()
+pbwindow.resizable(False, False)
 if os.name == 'nt':
     pbwindow.iconbitmap(config['icon'])
 pbwindow.title(lang['loadingTitle'])
@@ -1612,6 +1691,7 @@ action_list = ['Up', 'Down', 'Left', 'Right', 'Shoot']
 
 
 tankid_to_index = {}
+tankid_to_index_2 = {}
 
 
 for tank in tanklist:
@@ -1747,6 +1827,7 @@ for tank in tanklist:
     tankList.append([tankObject, ''])
     if is_remote:
         tankid_to_index[tank] = len(tankList) - 1
+    tankid_to_index_2[tank] = len(tankList) - 1
     
     tanks.append([tankObject, hpWidget])
 
@@ -1803,14 +1884,15 @@ bind_to.bind('<KeyPress>', kpc)
 bind_to.bind('<KeyRelease>', krc)
 
 
+root.withdraw()
+root.geometry('{}x{}'.format(WIDTH, HEIGHT))
+
 try:
     root.state('zoomed')
 except:
     root.attributes('-zoomed', True)
 if displayMode:
     root.attributes('-fullscreen', True)
-
-root.withdraw()
 
 
 pbwindow.destroy()
@@ -1841,6 +1923,18 @@ else:
     last_update_time = time.perf_counter()
     root.update()
     while True:
+        try:
+            if not root.winfo_exists():
+                break
+        except tk._tkinter.TclError:
+            break
         time.sleep(max(0, update_delay - (time.perf_counter() - last_update_time)))
         last_update_time = time.perf_counter()
         root.update()
+'''
+    exec(main_source, globals())
+
+
+if _is_main:
+    main()
+#'''

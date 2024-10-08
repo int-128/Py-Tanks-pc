@@ -248,7 +248,6 @@ def dynamicElementsControl():
     root.after(16, dynamicElementsControl)
 
 
-photoImageDict = {} # I don't know why this is necessary, but it is.
 class native:
     class Texture:
         def __init__(self, unzipDirectory = None, textureConfig = None, textureConfigEncoding = None, textureStates = [], textureDirections = []):
@@ -263,7 +262,6 @@ class native:
             #tempSize = (self.tkTexture['Normal']['Right'].width(), self.tkTexture['Normal']['Right'].height())
             #tempImg = self.tkTexture['Normal']['Right'].zoom(int(seg_size.get()) + 1, int(seg_size.get()) + 1)
             #self.tkTexture['Normal']['Right'] = tempImg.subsample(tempSize[0], tempSize[1])
-            photoImageDict[self] = self.tkTexture['Normal']['Right']
         def __getitem__(self, key):
             try:
                 return self.tkTexture[key]
@@ -316,15 +314,15 @@ class TextureMenu(Frame):
         texture.color(tkinter_color_to_rgb(color), *resize)
         texture.tkImage(self.master)
         self.canvas.delete(self.image)
-        photoImageDict[texture] = texture['Normal'].get('Right', texture['Normal'].get('Std', None))
-        if type(photoImageDict[texture]) == PhotoImage:
-            if photoImageDict[texture].width() * photoImageDict[texture].height() * int(self.canvas['width']) * int(self.canvas['height']) > 100000000:
-                photoImageDict[texture] = photoImageDict[texture].subsample(photoImageDict[texture].width() // int(self.canvas['width']), photoImageDict[texture].height() // int(self.canvas['height']))
+        self.photo_image = texture['Normal'].get('Right', texture['Normal'].get('Std', None))
+        if type(self.photo_image) == PhotoImage:
+            if self.photo_image.width() * self.photo_image.height() * int(self.canvas['width']) * int(self.canvas['height']) > 100000000:
+                self.photo_image = self.photo_image.subsample(self.photo_image.width() // int(self.canvas['width']), self.photo_image.height() // int(self.canvas['height']))
             else:
-                tempSize = (photoImageDict[texture].width(), photoImageDict[texture].height())
-                tempImg = photoImageDict[texture].zoom(int(self.canvas['width']), int(self.canvas['height']))
-                photoImageDict[texture] = tempImg.subsample(tempSize[0], tempSize[1])
-        self.image = self.canvas.create_image(*([int(config0['General']['canvashighlightthickness'])] * 2), anchor = "nw", image = photoImageDict[texture])
+                tempSize = (self.photo_image.width(), self.photo_image.height())
+                tempImg = self.photo_image.zoom(int(self.canvas['width']), int(self.canvas['height']))
+                self.photo_image = tempImg.subsample(tempSize[0], tempSize[1])
+        self.image = self.canvas.create_image(*([int(config0['General']['canvashighlightthickness'])] * 2), anchor = "nw", image = self.photo_image)
 
     def prev(self):
         if len(self.texturePathList) != 0:
@@ -777,6 +775,19 @@ if colorScheme == 2:
     style.configure('TCombobox', background = background, fieldbackground = entries, foreground = foreground)
 
 
+class TkLANGameSettingsFrame(Frame):
+
+    def __init__(self, master=None, **kw):
+        super().__init__(master, **kw)
+        self.frame = Frame(self)
+        self.row0 = Frame(self)
+        self.row0.pack()
+        self.label_enabled = Label(master = self.row0)
+        self.label_enabled.pack(side = LEFT)
+        self.checkbox_enabled = Checkbutton(master = self.row0)
+        self.checkbox_enabled.pack(side = LEFT)
+
+
 rootFrame = Frame(root)
 rootFrame.grid()
 root.rowconfigure(index = 0, weight = 1)
@@ -796,7 +807,7 @@ general = Frame(frame)
 ntbk.add(general, text=lang['general'])
 mapSettings = Frame(frame)
 ntbk.add(mapSettings, text=lang['map'])
-network = Frame(frame)
+network = TkLANGameSettingsFrame(frame)
 ntbk.add(network, text=lang['networkPlay'])
 rowg = 0
 
@@ -1209,6 +1220,9 @@ rowg += 1
 
 dec = True
 dynamicElementsControl()
+
+
+pass
 
 
 window = root
