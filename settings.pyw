@@ -61,9 +61,8 @@ import functools as ft
 config0 = ConfigParser()
 config0.read('settings.cfg', encoding = encoding)
 config = SectionProxy(config0, 'General')
-config1 = ConfigParser(allow_no_value = True, strict = False)
+config1 = ConfigParser()
 config1.read(config['config'], encoding = encoding)
-config1.remove_section('RawData')
 fileName = config['settings']
 
 if os.name == 'nt' and eval(config0['General']['replacepathjoinonwindows']):
@@ -71,33 +70,30 @@ if os.name == 'nt' and eval(config0['General']['replacepathjoinonwindows']):
 
 def save_changes():
     global clientDataCheck, config, seg_size, map_name, background_color, wall_color, defLng, useunstdtex, defaultColorScheme, background_image, networkPlayCheck, IP1entry, IP2entry, portEntry, role, wallTexture, rspwnFtrDstr, damageFromWalls, rammingDamage, colorSchemes, additionlTanks, aiFromName
-    settings = open('settings.pts', 'w', encoding = encoding)
-    settings.write('[RawData]\n')
-    settings.write(str(colorSchemes.index(defaultColorScheme.get())) + '\n')
+    settings = open(config0['General']['config'], 'w', encoding = encoding)
+    config1['General']['theme'] = str(colorSchemes.index(defaultColorScheme.get()))
     width, height = (int(el) * int(seg_size.get()) for el in (fieldWidth.get(), fieldHeight.get()))
     FS = fsv.index(fs.get())
     Height = height
-    settings.write('\n' + str(width) + ' ' + str(Height) + '\n' + seg_size.get() + '\n' + str(int(useunstdtex.get())) + '\n' * 7 + background_image.get() + '\n' + background_color.get() + '\n' + wall_color.get() + '\n')
+    config1['General']['width'] = str(width)
+    config1['General']['height'] = str(Height)
+    config1['General']['seg_size'] = seg_size.get()
+    config1['General']['textures'] = str(int(useunstdtex.get()))
+    config1['General']['background_image'] = background_image.get()
+    config1['General']['background_color'] = background_color.get()
+    config1['General']['wall_color'] = wall_color.get()
     map_file_name = map_name.get()
-    settings.write(map_file_name + '\n')
-    global langsDescr, config1
-    settings.write(langsDescr[defLng.get()] + '\n')
-    settings.write('\n')
-    settings.write('\n')
-    settings.write('\n')
-    settings.write('\n')
-    settings.write('\n')
-    settings.write(wallTexture.get() + '\n')
-    settings.write(str(FS) + '\n')
-    settings.write('\n')
-    settings.write('\n')
+    config1['General']['map'] = map_file_name
+    config1['General']['localization_file'] = langsDescr[defLng.get()]
+    config1['General']['wall_texture'] = wallTexture.get()
+    config1['General']['display_mode'] = str(FS)
     
     config1['ConfigurationVersion']['pytanksversion'] = PTver
     config1['General']['respawnafterdestruction'] = str(int(rspwnFtrDstr.get()))
     config1['General']['damagefromwalls'] = str(int(damageFromWalls.get()))
     config1['General']['rammingdamage'] = str(int(rammingDamage.get()))
     config1['General']['ttkthemename'] = ttkThemeName.get()
-    config1['General']['animations'] = str(animations.get())
+    #config1['General']['animations'] = str(animations.get())
     config1['General']['newhpbar'] = str(hp_bar_types.index(hp_bar_type.get()))
     
     config1['General']['tanklist'] = str(tanklist)
@@ -651,15 +647,7 @@ class PlacingMenu(Frame):
         self.update_()
 
 
-ns = 15
-settings = open(config['config'], encoding = encoding)
-for line in settings:
-    if line.rstrip('\n').lower() == '[rawdata]':
-        break
-for i in range(ns):
-    settings.readline()
-lngFileName = settings.readline().rstrip('\n')
-settings.close()
+lngFileName = config1['General']['localization_file']
 
 lang = readLngFile(config['fallbacklng'], 'Settings')
 lang.update(readLngFile(lngFileName, 'Settings'))
@@ -677,11 +665,9 @@ root.protocol("WM_DELETE_WINDOW", close)
 if os.name == 'nt':
     root.iconbitmap(config['icon'])
 root.title(lang['title'])
-settings = open(config['config'], encoding = encoding)
-for line in settings:
-    if line.rstrip('\n').lower() == '[rawdata]':
-        break
-colorScheme = int(settings.readline())
+
+
+colorScheme = int(config1['General']['theme'])
 try:
     from ttkthemes import ThemedStyle
     ttkthemesimported = True
@@ -848,10 +834,9 @@ ttkThemeName.set(config1['General']['ttkthemename'])
 ttkThemeMenu = OptionMenu(general, ttkThemeName, *([ttkThemeName.get()] + sorted(style.theme_names())))
 rowg += 1
 
-settings.readline()
-
 Label(general, text = lang['fieldsize']).grid(row = rowg, column = 0, pady = gridpady)
-width, height = map(int, settings.readline().rstrip('\n').split())
+width = int(config1['General']['width'])
+height = int(config1['General']['height'])
 fieldWidth = StringVar(general)
 fieldHeight = StringVar(general)
 fszFrame = Frame(general)
@@ -866,7 +851,7 @@ rowg += 1
 Label(general, text=lang['segSize']).grid(row = rowg, column = 0, pady = gridpady)
 seg_size = StringVar(general)
 segSizeSB = Spinbox(general, width = WIDTH - 2, from_ = 0, to = 1000, textvariable = seg_size)
-seg_size.set(settings.readline().rstrip('\n'))
+seg_size.set(config1['General']['seg_size'])
 segSizeSB.grid(row = rowg, column = 1, pady = gridpady)
 rowg += 1
 
@@ -877,7 +862,7 @@ mappreviewsegsize = round(float(config0['General']['settingsmappreviewsegsizecoe
 
 Label(general, text=lang['useUnstdTex']).grid(row = rowg, column = 0, pady = gridpady)
 useunstdtex = BooleanVar()
-useunstdtex.set(bool(int(settings.readline().rstrip('\n'))))
+useunstdtex.set(bool(int(config1['General']['textures'])))
 if UnStdTexLock:
     useunstdtex.set(False)
 useunstdtexCheck = Checkbutton(general, var=useunstdtex)
@@ -885,8 +870,6 @@ useunstdtexCheck.grid(row = rowg, column = 1, pady = gridpady)
 if UnStdTexLock:
     useunstdtexCheck.configure(state = 'disabled')
 rowg += 1
-
-for _ in range(6): settings.readline()
 
 mapSettingsFrame = Frame(mapSettings)
 mapSettingsMenuFrame = Frame(mapSettings)
@@ -898,36 +881,34 @@ rowmsf = 0
 rowmsmf = 0
 
 backgroundImagePathList = detectTextures(config0['General']['mapTextures'], formats)
-background_image = TextureMenu(mapSettingsMenuFrame, canvasWidth = int(fieldWidth.get()) * mappreviewsegsize, canvasHeight = int(fieldHeight.get()) * mappreviewsegsize, canvasBackground = '#000000', texturePathList = backgroundImagePathList, currentTexturePath = settings.readline().rstrip('\n'), colorEntry = colorInputWidgetPlaceholder(), text = lang['backgroundImage'])
+background_image = TextureMenu(mapSettingsMenuFrame, canvasWidth = int(fieldWidth.get()) * mappreviewsegsize, canvasHeight = int(fieldHeight.get()) * mappreviewsegsize, canvasBackground = '#000000', texturePathList = backgroundImagePathList, currentTexturePath = config1['General']['background_image'], colorEntry = colorInputWidgetPlaceholder(), text = lang['backgroundImage'])
 background_image.pack(side = TOP, pady = gridpady)
 rowmsmf += 1
 Label(mapSettingsFrame, text=lang['backgrColor']).grid(row = rowmsf, column = 0, pady = gridpady)
 background_color = ColorMenu(mapSettingsFrame)
-background_color.set(settings.readline().rstrip('\n'))
+background_color.set(config1['General']['background_color'])
 background_color.grid(row = rowmsf, column = 1, pady = gridpady)
 rowmsf += 1
 background_image.canvas.config(background = background_color.get())
 Label(mapSettingsFrame, text=lang['wallColor']).grid(row = rowmsf, column = 0, pady = gridpady)
 wall_color = ColorMenu(mapSettingsFrame)
-wall_color.set(settings.readline().rstrip('\n'))
+wall_color.set(config1['General']['wall_color'])
 wall_color.grid(row = rowmsf, column = 1, pady = gridpady)
 rowmsf += 1
 mapPathList = detectTextures(config0['General']['mapfolder'], {'ptm': None})
-map_name = MapMenu(mapSettingsMenuFrame, canvasWidth = int(fieldWidth.get()) * mappreviewsegsize, canvasHeight = int(fieldHeight.get()) * mappreviewsegsize, canvasBackground = background_color.get(), mapPathList = mapPathList, currentMapPath = settings.readline().rstrip('\n'), colorEntry = wall_color, segSize = mappreviewsegsize, text = lang['mapmenutext'])
+map_name = MapMenu(mapSettingsMenuFrame, canvasWidth = int(fieldWidth.get()) * mappreviewsegsize, canvasHeight = int(fieldHeight.get()) * mappreviewsegsize, canvasBackground = background_color.get(), mapPathList = mapPathList, currentMapPath = config1['General']['map'], colorEntry = wall_color, segSize = mappreviewsegsize, text = lang['mapmenutext'])
 map_name.pack(side = TOP, pady = gridpady)
 rowmsmf += 1
 
-for _ in range(6): settings.readline()
-
 Label(mapSettingsFrame, text = lang['walltexture']).grid(row = rowmsf, column = 0, pady = gridpady)
 wallTexturePathList = detectTextures(config0['General']['wallTextures'], formats)
-wallTexture = TextureMenu(mapSettingsFrame, canvasWidth = int(seg_size.get()) + 1, canvasHeight = int(seg_size.get()) + 1, canvasBackground = background_color.get(), texturePathList = wallTexturePathList, currentTexturePath = settings.readline().rstrip('\n'), colorEntry = wall_color)
+wallTexture = TextureMenu(mapSettingsFrame, canvasWidth = int(seg_size.get()) + 1, canvasHeight = int(seg_size.get()) + 1, canvasBackground = background_color.get(), texturePathList = wallTexturePathList, currentTexturePath = config1['General']['wall_texture'], colorEntry = wall_color)
 wallTexture.grid(row = rowmsf, column = 1, pady = gridpady)
 rowmsf += 1
 
 Label(general, text=lang['imagetext']).grid(row = rowg, column = 0, pady = gridpady)
 fs = StringVar(general)
-fsInt = int(settings.readline().rstrip('\n'))
+fsInt = int(config1['General']['display_mode'])
 fsv = [lang['inwindow'], lang['fullscreen']]
 fs.set(fsv[fsInt])
 if colorScheme % 2 == 1:
@@ -937,8 +918,6 @@ else:
 fsMenu.grid(row = rowg, column = 1, pady = gridpady)
 rowg += 1
 
-settings.readline()
-settings.close()
 Label(general, text=lang['language']).grid(row = rowg, column = 0, pady = gridpady)
 lng = open(lngFileName, encoding = encoding)
 cur = lng.readline()
@@ -998,12 +977,12 @@ apply.pack(side=RIGHT, padx = (3, 7), pady = (0, 7))
 cancel.pack(side=RIGHT, padx = 3, pady = (0, 7))
 ok.pack(side=RIGHT, padx = (7, 3), pady = (0, 7))
 
-Label(general, text = lang['animations']).grid(row = rowg, column = 0, pady = gridpady)
-animations = BooleanVar()
-animations.set(eval(config1['General']['animations']))
-animationsCheck = Checkbutton(general, var = animations)
-animationsCheck.grid(row = rowg, column = 1, pady = gridpady)
-rowg += 1
+#Label(general, text = lang['animations']).grid(row = rowg, column = 0, pady = gridpady)
+#animations = BooleanVar()
+#animations.set(eval(config1['General']['animations']))
+#animationsCheck = Checkbutton(general, var = animations)
+#animationsCheck.grid(row = rowg, column = 1, pady = gridpady)
+#rowg += 1
 
 Label(general, text = lang['hpbartype']).grid(row = rowg, column = 0, pady = gridpady)
 hp_bar_types = [lang['hpbarstd'], lang['hpbarnew']]

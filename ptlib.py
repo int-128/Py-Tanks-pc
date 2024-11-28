@@ -90,6 +90,8 @@ def PhotoImage_transparency_set(self, x, y, boolean):
 
 
 def tkinter_color_to_rgb(color):
+    if color == '':
+        return (0, 0, 0, 0)
     if color in tkinter_text_colors:
         return (*tkinter_text_colors[color], 255)
     try:
@@ -102,3 +104,11 @@ def tkinter_color_to_rgb(color):
     except:
         pass
     raise ValueError(f'"{color}" is not a valid color')
+
+
+def update_config_for_app(config, section_name_format):
+    for section in config:
+        app_section = section_name_format.format(section)
+        if app_section in config:
+            for key in config[app_section]:
+                config[section][key] = config[app_section][key]

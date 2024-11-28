@@ -27,6 +27,7 @@ encoding = 'utf-8'
 from tkinter import *
 from tkinter import font
 import os
+import ptlib as ptl
 
 if os.name == 'nt':
     from os import startfile
@@ -41,21 +42,25 @@ try:
 except:
     pass
 
+
 windows = [None]
 
-settings = open('settings.pts', encoding = encoding)
-settings.readline()
-colorScheme = int(settings.readline())
-settingsFile = settings.readline().rstrip('\n')
-settings.close()
 
 cnfprsr = ConfigParser()
 config0 = cnfprsr
 cnfprsr.read('settings.cfg', encoding = encoding)
+config1 = ConfigParser()
+config1.read(config0['General']['config'], encoding = encoding)
+
+app_config_section_format = eval(config0[config1['General']['pytanks_application']]['config_section_format'])
+ptl.update_config_for_app(config0, app_config_section_format)
+ptl.update_config_for_app(config1, app_config_section_format)
+
 config = SectionProxy(cnfprsr, 'General')
-config1 = ConfigParser(allow_no_value = True, strict = False)
-config1.read(config['config'], encoding = encoding)
-config1.remove_section('RawData')
+
+
+colorScheme = int(config1['General']['theme'])
+
 
 if colorScheme % 2 == 1:
     from tkinter.ttk import *
@@ -108,15 +113,8 @@ def fexit():
     window.destroy()
     sys.exit(0)
 
-ns = 15
-settings = open(config['config'], encoding = encoding)
-for line in settings:
-    if line.rstrip('\n').lower() == '[rawdata]':
-        break
-for i in range(ns):
-    settings.readline()
-lngFileName = settings.readline().rstrip('\n')
-settings.close()
+
+lngFileName = config1['General']['localization_file']
 
 lang = readLngFile(config['fallbacklng'], 'Menu')
 lang.update(readLngFile(lngFileName, 'Menu'))

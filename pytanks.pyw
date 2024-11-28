@@ -56,6 +56,7 @@ import socket as sckt
 import threading as thrd
 import time
 import tkinter as tk
+import configparser as cp
 
 
 if not hasattr(PhotoImage, 'transparency_get'):
@@ -129,26 +130,13 @@ def rgb_to_tk_color(color):
 config0 = ConfigParser()
 config0.read('settings.cfg', encoding = encoding)
 config = SectionProxy(config0, 'General')
-config1 = ConfigParser(allow_no_value = True, strict = False)
+config1 = ConfigParser()
 config1.read(config['config'], encoding = encoding)
-config1.remove_section('RawData')
-
-ns = 15
-settings = open(config['config'], encoding = encoding)
-for line in settings:
-    if line.rstrip('\n').lower() == '[rawdata]':
-        break
-for i in range(ns):
-    settings.readline()
-lngFileName = settings.readline().rstrip('\n')
-settings.close()
 
 
-settings = open(config['config'], encoding = encoding)
-for line in settings:
-    if line.rstrip('\n').lower() == '[rawdata]':
-        break
-colorScheme = int(settings.readline())
+lngFileName = config1['General']['localization_file']
+colorScheme = int(config1['General']['theme'])
+
 
 if colorScheme % 2 == 1:
     from tkinter.ttk import *
@@ -207,22 +195,18 @@ def _init1():
         style.theme_use(config1['General']['ttkthemename'])
 
 
-settings.readline()
-WIDTH, HEIGHT = map(int, settings.readline().split())
-SEG_SIZE = int(settings.readline())
+WIDTH = int(config1['General']['width'])
+HEIGHT = int(config1['General']['height'])
+SEG_SIZE = int(config1['General']['seg_size'])
 WIDTH -= WIDTH % SEG_SIZE
 HEIGHT -= HEIGHT % SEG_SIZE
-UseUnstdTex = bool(int(settings.readline()))
-for _ in range(6): settings.readline()
-backgroundImageFileName = settings.readline().rstrip('\n')
-background = settings.readline().rstrip('\n')
-WALL_COLOR = settings.readline().rstrip('\n')
-mapName = settings.readline().rstrip('\n')
-for _ in range(6): settings.readline()
-walltextureFile = settings.readline().rstrip('\n')
-displayMode = bool(int(settings.readline().rstrip('\n')))
-settings.readline()
-settings.close()
+UseUnstdTex = bool(int(config1['General']['textures']))
+backgroundImageFileName = config1['General']['background_image']
+background = config1['General']['background_color']
+WALL_COLOR = config1['General']['wall_color']
+mapName = config1['General']['map']
+walltextureFile = config1['General']['wall_texture']
+displayMode = bool(int(config1['General']['display_mode']))
 
 
 def _init2():
@@ -379,7 +363,10 @@ class Texture:
 
 class _Animation:
 
-    def __init__(self, master, canvas, animation_update_delay, textureFilesMask, textureFileCount, size, scaling = None, rotate_textures = True):
+    def __init__(self, master, canvas, animation_update_delay, textureFilesMask, textureFileCount, size, scaling = None, rotate_textures = True, disabled=False):
+        self.disabled = disabled
+        if self.disabled:
+            return
         self.master = master
         self.canvas = canvas
         self.animationContinueRate = animation_update_delay
@@ -397,6 +384,8 @@ class _Animation:
         self.textureMapI = 0
 
     def start(self, posx, posy, direction=(1, 0), cycle=False):
+        if self.disabled:
+            return
         self.textureMap[self.textureMapI] = self.textureList[0].spawnCopy(posx, posy, direction, self.canvas)
         self.textureMapI += 1
         self.master.after(self.animationContinueRate, self._continue, posx, posy, direction, self.textureMapI - 1, 0, cycle)
@@ -419,10 +408,28 @@ class _Animation:
 
 class Animation(_Animation):
 
-    def __init__(self, textureFilesMask, textureFileCount, size):
-        super().__init__(root, c, int(config0['General']['animationcontinuerate']), textureFilesMask, textureFileCount, size)
+    def __init__(self, name):
+        animation_config = eval(config0['animations'][name])
+        
+        if 'file' in animation_config:
+            animation_config_parser = cp.ConfigParser()
+            animation_config_parser.read(animation_config['file']['path'])
+            animation_config_2 = {}
+            for key in animation_config_parser['animation']:
+                value = animation_config_parser['animation'][key]
+                animation_config_2[key] = eval(value)
+            animation_config.update(animation_config_2)
+        
+        animation_config.update(eval(config1['animations'][name]))
+        texture_files_mask = animation_config['texture_files_mask']
+        texture_count = animation_config['texture_count']
+        texture_segments = animation_config['texture_segments']
+        continue_delay = animation_config['continue_delay']
+        enabled = animation_config['enabled']
+        
+        super().__init__(root, c, continue_delay, texture_files_mask, texture_count, texture_segments, disabled = not enabled)
 
-
+'''
 class DisabledAnimation:
 
     def __init__(self, textureFilesMask, textureFileCount, size):
@@ -434,6 +441,21 @@ class DisabledAnimation:
     def _continue(self, posx, posy, direction, textureMapI, i=0):
         pass
 
+
+def animation_from_ini(file_path):
+    animation_config = cp.ConfigParser()
+    animation_config.read(file_path)
+    texture_files_mask_rp = eval(animation_config['animation']['texture_files_mask'])
+    texture_files_mask = os.path.join(os.path.dirname(file_path), texture_files_mask_rp)
+    texture_count = int(animation_config['animation']['texture_count'])
+    texture_segments = eval(animation_config['animation']['texture_segments'])
+    animation = Animation(texture_files_mask, texture_count, texture_segments)
+    animation.animationContinueRate = int(animation_config['animation']['continue_delay'])
+    return animation
+
+def animation_placeholder():
+    return DisabledAnimation(None, None, None)
+'''
 
 def create_block(tank, posx, posy, direction, color):
     if tank.b:
@@ -590,7 +612,7 @@ def _cals_pos_2(x, y, direction, n, i):
     return (t[j] - direction[j] * SEG_SIZE * (n - i - 1) / n for j in range(len(t)))
 
 class Tank:
-    def __init__(self, segments, mapping, fireMapping, vector, team, hp, hpWidget, speed, texture = None, bulletTexture = '', color = '#000000', bar = None, reload = -1):
+    def __init__(self, segments, mapping, fireMapping, vector, team, hp, hpWidget, speed, texture = None, bulletTexture = '', color = '#000000', bar = None, reload = -1, animations={}):
         self.segments = segments
         self.respawnCoords = []
         for segment in segments:
@@ -614,12 +636,16 @@ class Tank:
         self.b2 = False
         self.reload = reload
         self.last_shoot_time = clock() - reload
+        self.animations = animations
 
     def move(self, event):
+        if self.hp <= 0:
+            return
         global lang
         if event in self.mapping:
             last_direction = self.vector
             self.vector = self.mapping[event]
+            self._start_track_animation()
             bl = False
             lastCoords = []
             for index in range(len(self.segments)):
@@ -776,6 +802,14 @@ class Tank:
 
     def get_coords(self):
         return [el // SEG_SIZE for el in self._coords]
+
+    def _start_track_animation(self):
+        track_animation = self.animations['track']
+        x, y, x2, y2 = c.coords(self.segments[4].instance)
+        vector = self.vector
+        x += (vector[0] - (vector[0] == 0)) * SEG_SIZE
+        y += (vector[1] - (vector[1] == 0)) * SEG_SIZE
+        track_animation.start(x, y, vector)
 
 
 class F10Menu():
@@ -1557,6 +1591,9 @@ root.protocol("WM_DELETE_WINDOW", close)
 
 if os.name == 'nt':
     root.iconbitmap(config['icon'])
+else:
+    icon_image = tk.PhotoImage(master = root, file = config0['General']['icon_png'])
+    root.iconphoto(True, icon_image)
 
 pbwindow = Toplevel(root)
 pbwindow.withdraw()
@@ -1852,15 +1889,21 @@ for i in range(len(tankList)):
 
 f10m = F10Menu(c, root)
 
-if not eval(config1['General']['animations']):
-    Animation = DisabledAnimation
+#if not eval(config1['General']['animations']):
+#    Animation = DisabledAnimation
 
-shootAnimation = Animation(config0['General']['shootanimationtextures'], int(config0['General']['shootanimationtexturecount']), eval(config0['General']['shootanimationtexturesegsize']))
+shootAnimation = Animation('shoot')
 startShootAnimation = shootAnimation.start
-damageAnimation = Animation(config0['General']['damageanimationtextures'], int(config0['General']['damageanimationtexturecount']), eval(config0['General']['damageanimationtexturesegsize']))
+damageAnimation = Animation('damage')
 startDamageAnimation = damageAnimation.start
-destructionAnimation = Animation(config0['General']['destructionanimationtextures'], int(config0['General']['destructionanimationtexturecount']), eval(config0['General']['destructionanimationtexturesegsize']))
+destructionAnimation = Animation('destruction')
 startDestructionAnimation = destructionAnimation.start
+
+track_animation = Animation('track')
+
+for tank in tanks:
+    tank[0].animations['track'] = track_animation
+
 
 lastevent = ''
 event1 = ''
