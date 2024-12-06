@@ -254,7 +254,7 @@ class PhotoImage:
         color = self._surface.get_at((x, y))
         return color[:3]
 
-    def put(self, data, to=None):
+    def put(self, data, to):
         color = ptl.tkinter_color_to_rgb(data)
         self._surface.set_at(to, color)
 

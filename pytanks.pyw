@@ -72,7 +72,13 @@ try:
     formats['ptt'] = ptt
     formats['zip'] = ptt
 except:
-    pass
+    try:
+        import ptt_tk as ptt
+        formats['ptt'] = ptt
+        formats['zip'] = ptt
+    except:
+        pass
+
 
 if os.name == 'nt':
     from os import startfile

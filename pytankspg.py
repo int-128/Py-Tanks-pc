@@ -194,7 +194,11 @@ def init(**kwargs):
         del pt.ImageTk
 
     if hasattr(pt, 'ptt'):
-        pt.ptt.ImageTk = pilimgtkonpg
+        if hasattr(pt.ptt, 'ImageTk'):
+            pt.ptt.ImageTk = pilimgtkonpg
+        if hasattr(pt.ptt, 'tk'):
+            pt.ptt.tk = tkonpg
+            pt.ptt.tk.Tk = tkonpg._TkObjectPlaceholder()
 
     return config0, config1, localization
 
