@@ -31,13 +31,8 @@ import tkinter
 import sys
 from sys import exit
 import os
+import ptlib as ptl
 
-if os.name == 'nt':
-    from os import startfile
-else:
-    from os import system
-    def startfile(file):
-        system("python3 '" + file + "'")
 
 if os.name == 'nt':
     _os_path_join = os.path.join
@@ -122,19 +117,19 @@ def fok():
     save_changes()
     global root, config
     root.destroy()
-    startfile(config['menu'])
+    #startfile(config['menu'])
     exit(0)
 
 def fcancel():
     global root, config
     root.destroy()
-    startfile(config['menu'])
+    #startfile(config['menu'])
     exit(0)
 
 def fapply():
     save_changes()
     root.destroy()
-    startfile(config0['General']['settings'])
+    ptl.run_python_file(config0['General']['settings'])
     exit(0)
 
 root = Tk()

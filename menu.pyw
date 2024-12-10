@@ -29,21 +29,12 @@ from tkinter import font
 import os
 import ptlib as ptl
 
-if os.name == 'nt':
-    from os import startfile
-else:
-    from os import system
-    def startfile(file):
-        system("python3 '" + file + "'")
 
 try:
     from ctypes import windll
     windll.shcore.SetProcessDpiAwareness(1)
 except:
     pass
-
-
-windows = [None]
 
 
 cnfprsr = ConfigParser()
@@ -97,17 +88,16 @@ elif colorScheme == 2:
 
 
 def fplay():
-    global PyTanks, PyTanksImported, restart
-    window.destroy()
-    global config
-    startfile(config['pytanks'])
-    sys.exit(0)
+    window.withdraw()
+    return_code = ptl.run_python_file(config['pytanks'])
+    window.deiconify()
+    return return_code
 
 def fsettings():
-    global Settings, SettingsImported, restart
-    window.destroy()
-    startfile(config0['General']['settings'])
-    sys.exit(0)
+    window.withdraw()
+    return_code = ptl.run_python_file(config0['General']['settings'])
+    window.deiconify()
+    return return_code
 
 def fexit():
     window.destroy()

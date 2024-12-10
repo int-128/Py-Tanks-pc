@@ -1,6 +1,3 @@
-PyTanksVersion = '1.14.1'
-
-
 UP = (0, -1)
 DOWN = (0, 1)
 LEFT = (-1, 0)
@@ -45,6 +42,8 @@ class AIClass:
         self.mapping = {}
         self.fireMapping = {}
 
+        self.last_action = None
+
     def _init(self): pass
 
     def getPosition(self, tank=None):
@@ -59,6 +58,7 @@ class AIClass:
         return tank.vector
 
     def _move(self, direction):
+        self.last_action = direction
         self.tank.move(direction)
 
     def move(self, direction = None):

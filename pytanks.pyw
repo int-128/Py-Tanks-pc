@@ -57,6 +57,7 @@ import threading as thrd
 import time
 import tkinter as tk
 import configparser as cp
+import aiinterface as aii
 
 
 if not hasattr(PhotoImage, 'transparency_get'):
@@ -79,12 +80,6 @@ except:
     except:
         pass
 
-
-if os.name == 'nt':
-    from os import startfile
-else:
-    def startfile(file):
-        os.open(file, os.O_RDWR | os.O_CREAT)
 
 try:
     from ctypes import windll
@@ -188,9 +183,12 @@ def _init0():
     root.withdraw()
 
 
+rec = None
+
 def close():
-    global config
-    startfile(config['menu'])
+    global rec
+    if rec is not None:
+        rec.shutdown()
     terminate(root)
 
 
@@ -643,8 +641,13 @@ class Tank:
         self.reload = reload
         self.last_shoot_time = clock() - reload
         self.animations = animations
+        self._spawn_async_called = False
+        self._spawn_async_args = None
 
     def move(self, event):
+        if self._spawn_async_called:
+            self._spawn_async_called = False
+            self.spawn(*self._spawn_async_args)
         if self.hp <= 0:
             return
         global lang
@@ -817,6 +820,10 @@ class Tank:
         y += (vector[1] - (vector[1] == 0)) * SEG_SIZE
         track_animation.start(x, y, vector)
 
+    def spawn_async(self, x, y, vector):
+        self._spawn_async_called = True
+        self._spawn_async_args = (x, y, vector)
+
 
 class F10Menu():
 
@@ -911,12 +918,12 @@ class RemoteEventController:
         pass
 
     def kpc(self, event):
-        KeyPressController(event)
         self.kpc_(keysym(event))
+        KeyPressController(event)
 
     def krc(self, event):
-        KeyReleaseController(event)
         self.krc_(keysym(event))
+        KeyReleaseController(event)
 
 
 class ConnectionAnimationWindow:
@@ -1042,6 +1049,8 @@ class PTServer(RemoteEventController):
         self.caw = ConnectionAnimationWindow(root, config0, config1, lang)
         self.udp_socket = sckt.socket(sckt.AF_INET, sckt.SOCK_DGRAM)
         self.tank_shoot_keysym = {}
+        self._game_data_exchange_started = False
+        self._threads = []
 
     def set_number_of_clients(self, number_of_clients):
         self.socket.listen(len(number_of_clients))
@@ -1053,7 +1062,7 @@ class PTServer(RemoteEventController):
 
     def accept_connection(self):
         result = [None, False]
-        thread = thrd.Thread(target = self._accept_connection, args = [result])
+        thread = thrd.Thread(target = self._accept_connection, args = [result], daemon = True)
         thread.start()
         return result
 
@@ -1121,7 +1130,8 @@ class PTServer(RemoteEventController):
     def synchronize_settings(self):
         for i in range(len(self.connection_list_2)):
             self.connection_list_2[i][3] = [None, False]
-            thread = thrd.Thread(target = self._get_settings_from_client, args = (i, self.connection_list_2[i][3]))
+            thread = thrd.Thread(target = self._get_settings_from_client, args = (i, self.connection_list_2[i][3]), daemon = True)
+            self._threads.append(thread)
             thread.start()
         while True:
             v = True
@@ -1140,7 +1150,8 @@ class PTServer(RemoteEventController):
         sync_done_list = {}
         for tankid in self.clients:
             sync_done_list[tankid] = [False]
-            thread = thrd.Thread(target = self._send_settings_to_client, args = (tankid, sync_done_list[tankid]))
+            thread = thrd.Thread(target = self._send_settings_to_client, args = (tankid, sync_done_list[tankid]), daemon = True)
+            self._threads.append(thread)
             thread.start()
         while True:
             v = True
@@ -1162,7 +1173,8 @@ class PTServer(RemoteEventController):
         is_ready = {}
         for client in self.clients:
             is_ready[client] = False
-            thread = thrd.Thread(target = self._get_ready_packet, args = (client, is_ready))
+            thread = thrd.Thread(target = self._get_ready_packet, args = (client, is_ready), daemon = True)
+            self._threads.append(thread)
             thread.start()
         while True:
             v = True
@@ -1179,7 +1191,11 @@ class PTServer(RemoteEventController):
 
     def _get_action(self):
         data, addr = self.udp_socket.recvfrom(udp_package_size)
-        tankid, action = data.decode('utf-8').split(';')
+        message = data.decode('utf-8')
+        tankid, action = message.split(';')
+        if action == 'shutdown':
+            self.udp_addresses.pop(tankid)
+            return
         self.udp_addresses[tankid] = addr
         if action in {'None', 'Up', 'Down', 'Left', 'Right'}:
             self.tank_actions[tankid] = action
@@ -1189,7 +1205,7 @@ class PTServer(RemoteEventController):
             self.tank_shoot[tankid] = False
         self._send_action_to_clients(tankid, action)
 
-    def _send_action_to_clients(self, tankid, action):
+    def _send_action_pkg_to_clients(self, tankid, action):
         enc_msg_type = 'A'.encode('utf-8')
         enc_tank_id = tankid.encode('utf-8')
         enc_action = action.encode('utf-8')
@@ -1216,8 +1232,17 @@ class PTServer(RemoteEventController):
         msg = enc_msg_type + bytes([etidl]) + enc_tank_id + bytes([esll]) + enc_sl
         return msg
 
+    def _send_s_pkg_to_clients(self, tankid):
+        msg = self._make_s_pkg(tankid)
+        for client in self.udp_addresses:
+            self.udp_socket.sendto(msg, self.udp_addresses[client])
+
+    def _send_action_to_clients(self, tankid, action):
+        self._send_s_pkg_to_clients(tankid)
+        self._send_action_pkg_to_clients(tankid, action)
+
     def _sync_game(self):
-        for el in tankList:
+        for el in tanks:
             tankid = el[0].id
             msg = self._make_s_pkg(tankid)
             for client in self.udp_addresses:
@@ -1232,6 +1257,8 @@ class PTServer(RemoteEventController):
             time.sleep(max(0, (sync_delay - (sync_end_time - sync_start_time)) / 1000))
 
     def kpc_(self, keysym):
+        if not self._game_data_exchange_started:
+           return
         for i in range(len(tankList)):
             tank = tankList[i][0]
             if keysym in tank.mapping:
@@ -1243,6 +1270,8 @@ class PTServer(RemoteEventController):
                 self._send_action_to_clients(tank.id, 'Shoot')
 
     def krc_(self, keysym):
+        if not self._game_data_exchange_started:
+           return
         for i in range(len(tankList)):
             tank = tankList[i][0]
             if keysym in tank.mapping and self.tank_actions[tank.id] == dta[tank.mapping[keysym]]:
@@ -1253,18 +1282,62 @@ class PTServer(RemoteEventController):
                 self.tank_shoot_keysym[tank.id] = None
                 self._send_action_to_clients(tank.id, '-Shoot')
 
+    def _ai_controlled_tanks_action_sender(self):
+        while True:
+            for i in range(len(tankList)):
+                tank_ai = tankList[i][0]
+                if not isinstance(tank_ai, aii.AIClass):
+                    continue
+                last_action = tank_ai.last_action
+                if last_action is None:
+                    continue
+                tank = tank_ai.tank
+                if last_action == aii.SHOOT:
+                    self._send_action_to_clients(tank.id, 'None')
+                    self._send_action_to_clients(tank.id, 'Shoot')
+                else:
+                    self._send_action_to_clients(tank.id, dta[last_action])
+                    self._send_action_to_clients(tank.id, '-Shoot')
+            time.sleep(0.05)
+
     def start_game_data_exchange(self):
         for client in self.clients:
             self.clients[client][1].send_python_value('Start')
         self.socket.close()
         self.udp_socket.bind((self.ip_address, self.port))
         self.udp_addresses = {}
-        ag_thread = thrd.Thread(target = self._action_getter, args = [])
+        ag_thread = thrd.Thread(target = self._action_getter, args = [], daemon = True)
+        self._threads.append(ag_thread)
         ag_thread.start()
-        s_thread = thrd.Thread(target = self._start_sync, args = [])
+        s_thread = thrd.Thread(target = self._start_sync, args = [], daemon = True)
+        self._threads.append(s_thread)
         s_thread.start()
+        aictas_thread = thrd.Thread(target = self._ai_controlled_tanks_action_sender, args = [], daemon = True)
+        self._threads.append(aictas_thread)
+        aictas_thread.start()
+        self._game_data_exchange_started = True
 
-    pass
+    def _send_message_to_clients(self, message):
+        for client in self.udp_addresses:
+            self.udp_socket.sendto(message, self.udp_addresses[client])
+
+    def _send_shutdown_msg(self):
+        msg = '0shutdown'.encode('utf-8')
+        self._send_message_to_clients(msg)
+
+    def shutdown(self):
+        self._send_shutdown_msg()
+        self._stop_threads()
+        self.udp_socket.close()
+
+    def _stop_threads(self):
+        return
+        for thread in self._threads:
+            if thread.is_alive():
+                thread._stop()
+
+    def __del__(self):
+        self._stop_threads()
 
 
 class PTClient(RemoteEventController):
@@ -1275,6 +1348,7 @@ class PTClient(RemoteEventController):
         self.port = port
         self.caw = ConnectionAnimationWindow(root, config0, config1, lang)
         self.udp_socket = sckt.socket(sckt.AF_INET, sckt.SOCK_DGRAM)
+        self._threads = []
 
     def _connect(self, result):
         while True:
@@ -1285,7 +1359,8 @@ class PTClient(RemoteEventController):
 
     def connect(self):
         result = [None, False]
-        thread = thrd.Thread(target = self._connect, args = [result])
+        thread = thrd.Thread(target = self._connect, args = [result], daemon = True)
+        self._threads.append(thread)
         thread.start()
         self.caw.start()
         while True:
@@ -1353,14 +1428,16 @@ class PTClient(RemoteEventController):
 
     def synchronize_settings(self):
         sync_done = [False]
-        thread = thrd.Thread(target = self._send_settings_to_server, args = [sync_done])
+        thread = thrd.Thread(target = self._send_settings_to_server, args = [sync_done], daemon = True)
+        self._threads.append(thread)
         thread.start()
         while True:
             if sync_done[0]:
                 break
             self.caw.update()
         sync_done = [None, False]
-        thread = thrd.Thread(target = self._get_settings_from_server, args = [sync_done])
+        thread = thrd.Thread(target = self._get_settings_from_server, args = [sync_done], daemon = True)
+        self._threads.append(thread)
         thread.start()
         while True:
             if sync_done[1]:
@@ -1410,7 +1487,10 @@ class PTClient(RemoteEventController):
             sync_list = eval(enc_sl.decode('utf-8'))
             tank = tankList[tankid_to_index_2[tankid]][0]
             tank.hp = sync_list[2]
-            tank.spawn(*sync_list[0], sync_list[1])
+            tank.spawn_async(*sync_list[0], sync_list[1])
+        elif msgt == '0':
+            if msgt == '0shutdown':
+                self._server_shutdown()
 
     def _send_action_to_server(self, action):
         msg = ('{tankid};{action}'.format(tankid = self.id, action = action)).encode('utf-8')
@@ -1422,7 +1502,8 @@ class PTClient(RemoteEventController):
         self.caw.destroy()
         self.socket.close()
         self.udp_socket.bind((self.self_ip_addr, self.port))
-        thread = thrd.Thread(target = self._action_getter, args = [])
+        thread = thrd.Thread(target = self._action_getter, args = [], daemon = True)
+        self._threads.append(thread)
         thread.start()
         self._send_action_to_server('None')
 
@@ -1441,21 +1522,42 @@ class PTClient(RemoteEventController):
         if keysym in tank.fireMapping and self.tank_shoot_keysym == keysym:
             self._send_action_to_server('-Shoot')
 
-    pass
+    def _server_shutdown(self):
+        self._stop_threads()
+        pass; print('Server disconnected') #
 
-        
-if eval(config1['NetworkPlay']['enabled']):
+    def _send_message_to_server(self, message):
+        self.udp_socket.sendto(message, (self.ip_address, self.port))
 
-    if eval(config1['NetworkPlay']['is_server']):
-        server = PTServer(config1['NetworkPlay']['self_ip'], eval(config1['NetworkPlay']['port']))
-        rec = server
+    def _send_shutdown_msg(self):
+        msg = '{};shutdown'.format(self.id).encode('utf-8')
+        self._send_message_to_server(msg)
 
+    def shutdown(self):
+        self._send_shutdown_msg()
+        self._stop_threads()
+
+    def _stop_threads(self):
+        return
+        for thread in self._threads:
+            if thread.is_alive():
+                thread._stop()
+
+    def __del__(self):
+        self._stop_threads()
+
+
+def _init_ng():
+    global server, client, rec
+    if eval(config1['NetworkPlay']['enabled']):
+        if eval(config1['NetworkPlay']['is_server']):
+            server = PTServer(config1['NetworkPlay']['self_ip'], eval(config1['NetworkPlay']['port']))
+            rec = server
+        else:
+            client = PTClient(config1['NetworkPlay']['server_ip'], eval(config1['NetworkPlay']['port']))
+            rec = client
     else:
-        client = PTClient(config1['NetworkPlay']['server_ip'], eval(config1['NetworkPlay']['port']))
-        rec = client
-
-else:
-    rec = None
+        rec = None
 #=========================================================================================================
 
 
@@ -1590,6 +1692,7 @@ def main():
     _init1()
     _init2()
     _init3()
+    _init_ng()
     _init4()
     main_source = '''
 
@@ -1875,7 +1978,7 @@ for tank in tanklist:
     tanks.append([tankObject, hpWidget])
 
     aiName = config1[tank]['ai']
-    if aiName != 'None':
+    if aiName != 'None' and not is_remote:
         ai_lib_name, ai_class_name = aiName.split('.')
         ai_lib = __import__(ai_lib_name)
         AI = eval(f'ai_lib.{ai_class_name}')
