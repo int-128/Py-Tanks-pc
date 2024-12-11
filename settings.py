@@ -1,5 +1,3 @@
-PyTanksVersion = '1.15.0'
-
 import sys
 from ptlib import *
 from configparser import ConfigParser, SectionProxy
@@ -32,6 +30,7 @@ import sys
 from sys import exit
 import os
 import ptlib as ptl
+import tkinter as tk
 
 
 if os.name == 'nt':
@@ -774,6 +773,43 @@ class TkLANGameSettingsFrame(Frame):
         self.checkbox_enabled.pack(side = LEFT)
 
 
+class AnimationEnabledCheckbox:
+
+    def __init__(self, frame, row_n, name, animation_config, localization):
+        self._name = name
+        self._animation_config = animation_config
+        self._current_animation_config = eval(animation_config[name])
+        self._enabled_value = tk.IntVar(frame, self._current_animation_config['enabled'])
+        self._label = Label(frame, text = localization['animation_{}'.format(name)])
+        self._checkbox = Checkbutton(frame, variable = self._enabled_value, command = self._value_changed)
+        self._label.grid(row = row_n, column = 0, padx = 3, pady = 3)
+        self._checkbox.grid(row = row_n, column = 1, padx = (0, 3), pady = 3)
+
+    def _value_changed(self):
+        value = self._enabled_value.get()
+        self._current_animation_config['enabled'] = bool(value)
+        self._animation_config[self._name] = self._current_animation_config.__repr__()
+
+
+class AnimationsFrame(Frame):
+
+    def __init__(self, master, animation_config, localization):
+        super().__init__(master = master)
+        self._animation_enabled_checkboxes = []
+        for animation_name in animation_config:
+            row_n = len(self._animation_enabled_checkboxes)
+            animation_enabled_checkbox = AnimationEnabledCheckbox(self, row_n, animation_name, animation_config, localization)
+            self._animation_enabled_checkboxes.append(animation_enabled_checkbox)
+
+
+class AnimationsTab(Frame):
+
+    def __init__(self, master, animation_config, localization):
+        super().__init__(master = master)
+        self._animations_frame = AnimationsFrame(self, animation_config, localization)
+        self._animations_frame.grid(padx = 5, pady = 5)
+
+
 rootFrame = Frame(root)
 rootFrame.grid()
 root.rowconfigure(index = 0, weight = 1)
@@ -795,6 +831,11 @@ mapSettings = Frame(frame)
 ntbk.add(mapSettings, text=lang['map'])
 network = TkLANGameSettingsFrame(frame)
 ntbk.add(network, text=lang['networkPlay'])
+
+animations = AnimationsTab(frame, SectionProxy(config1, 'animations'), lang)
+ntbk.add(animations, text = lang['animations_tab_title'])
+
+
 rowg = 0
 
 class inputWidgetPlaceholder:

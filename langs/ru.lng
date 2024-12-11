@@ -93,6 +93,11 @@ hpbartype="Показатель брони: "
 hpbarnew="Полоса"
 hpbarstd="Число"
 reload="Перезарядка: "
+animations_tab_title="Анимации"
+animation_shoot="Выстрел: "
+animation_damage="Попадание: "
+animation_destruction="Уничтожение: "
+animation_track="След: "
 
 [Menu]
 title="Меню"
