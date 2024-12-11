@@ -86,15 +86,14 @@ elif colorScheme == 2:
 
 def fplay():
     window.withdraw()
-    return_code = ptl.run_python_file(config['pytanks'])
+    ptl.run_python_file(config['pytanks'])
     window.deiconify()
-    return return_code
 
 def fsettings():
-    window.withdraw()
-    return_code = ptl.run_python_file(config0['General']['settings'])
-    window.deiconify()
-    return return_code
+    window.destroy()
+    ptl.run_python_file(config0['General']['settings'])
+    ptl.run_python_file(config0['General']['menu'], True)
+    sys.exit(0)
 
 def fexit():
     window.destroy()

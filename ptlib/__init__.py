@@ -116,12 +116,14 @@ def update_config_for_app(config, section_name_format):
                 config[section][key] = config[app_section][key]
 
 
-def _run_python_file(interpreter, file_path):
-    return sp.run((interpreter, file_path))
+def _run_python_file(interpreter, file_path, no_wait=False):
+    process = sp.Popen((interpreter, file_path))
+    if not no_wait:
+        process.wait()
 
 if os.name == 'nt':
-    def run_python_file(file_path):
-        return _run_python_file('pythonw', file_path)
+    def run_python_file(file_path, no_wait=False):
+        return _run_python_file('pythonw', file_path, no_wait)
 else:
-    def run_python_file(file_path):
-        return _run_python_file('python3', file_path)
+    def run_python_file(file_path, no_wait=False):
+        return _run_python_file('python3', file_path, no_wait)
