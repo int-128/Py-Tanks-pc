@@ -1,11 +1,13 @@
-PyTanksVersion = '1.15.0'
-
-
 import sys
 from configparser import ConfigParser, SectionProxy
 import os
 import subprocess as sp
-from .tkinter_text_colors import TKINTER_TEXT_COLORS as tkinter_text_colors
+from .py_tanks_version import *
+from .tkinter_text_colors import *
+
+
+PyTanksVersion = '.'.join((str(n) for n in PY_TANKS_VERSION))
+tkinter_text_colors = TKINTER_TEXT_COLORS
 
 
 def readPtmFile(mapName, SEG_SIZE = 0, c = None, WallSegment = None, WALL_COLOR = '', UseUnstdTex = False, WallImg = None, pbwindow = None, pb = None, mbppbp = 0, pr = 0, fastread = False):

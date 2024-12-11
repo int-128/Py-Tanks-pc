@@ -1,6 +1,3 @@
-version = '0.1.0.1'
-py_tanks_version = '1.15.0.11'
-
 import sys
 import ptlib as ptl
 import pytanks as pt

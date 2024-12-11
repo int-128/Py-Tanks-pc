@@ -1,7 +1,3 @@
-version = '1.0.1'
-py_tanks_version = '1.15.0'
-
-
 import aiinterface as aii
 import random as rnd
 ai2 = __import__('ai2')

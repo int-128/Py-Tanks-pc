@@ -1,6 +1,3 @@
-PyTanksVersion = '1.15.0'
-
-
 from ptlib import *
 
 enableCrachHandler = False

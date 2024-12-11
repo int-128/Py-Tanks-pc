@@ -1,5 +1,3 @@
-PyTanksVersion = '1.15.0'
-
 from PIL import Image, ImageTk
 from zipfile import ZipFile
 from configparser import ConfigParser
