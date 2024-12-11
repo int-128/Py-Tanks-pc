@@ -1,5 +1,3 @@
-PyTanksVersion = '1.15.0'
-
 import sys
 from ptlib import *
 from configparser import ConfigParser, SectionProxy
