@@ -2,8 +2,8 @@ import sys
 from configparser import ConfigParser, SectionProxy
 import os
 import subprocess as sp
-from .py_tanks_version import *
-from .tkinter_text_colors import *
+from .pytanksversion import *
+from .tkintertextcolors import *
 
 
 PyTanksVersion = '.'.join((str(n) for n in PY_TANKS_VERSION))
