@@ -760,17 +760,119 @@ if colorScheme == 2:
     style.configure('TCombobox', background = background, fieldbackground = entries, foreground = foreground)
 
 
-class TkLANGameSettingsFrame(Frame):
+tabs = {}
+
+def enable_lan_game_settings():
+    for tankid in tabs:
+        ntbk.forget(tabs[tankid])
+    local_tankn = lang['tankn']
+    lang['tankn'] = lang['tank_lan']
+    makeTankTab(config0['LANGame']['tankid'])
+    lang['tankn'] = local_tankn
+
+def disable_lan_game_settings():
+    global tabs, additionlTanks
+    tab = tabs.pop(config0['LANGame']['tankid'])
+    ntbk.forget(tab)
+    tabs_copy = tabs.copy()
+    tabs = {}
+    additionlTanks = {}
+    for tankid in tabs_copy:
+        makeTankTab(tankid)
+
+
+class LANGameSettingsFrame(Frame):
+
+    def _lan_game_switched(self):
+        lan_game_enabled = bool(self._lan_game_enabled_var.get())
+        config1['NetworkPlay']['enabled'] = str(lan_game_enabled)
+        if lan_game_enabled:
+            if self._lan_game_enabled_last_value != lan_game_enabled:
+                enable_lan_game_settings()
+            self._optionmenu_role.config(state = 'enabled')
+            self._role_callback()
+            self._entry_port.config(state = 'enabled')
+        else:
+            if self._lan_game_enabled_last_value != lan_game_enabled:
+                disable_lan_game_settings()
+            self._optionmenu_role.config(state = 'disabled')
+            self._entry_self_address.config(state = 'disabled')
+            self._entry_server_address.config(state = 'disabled')
+            self._entry_port.config(state = 'disabled')
+        self._lan_game_enabled_last_value = lan_game_enabled
+
+    def _role_callback(self, variable_name=None, index=None, mode=None):
+        role = self._text_to_role[self._variable_role.get()]
+        config1['NetworkPlay']['is_server'] = str(bool(role))
+        if role:
+            self._entry_self_address.config(state = 'enabled')
+            self._entry_server_address.config(state = 'disabled')
+        else:
+            self._entry_self_address.config(state = 'disabled')
+            self._entry_server_address.config(state = 'enabled')
+
+    def _self_address_callback(self, variable_name, index, mode):
+        config1['NetworkPlay']['self_ip'] = self._variable_self_address.get()
+
+    def _server_address_callback(self, variable_name, index, mode):
+        config1['NetworkPlay']['server_ip'] = self._variable_server_address.get()
+
+    def _port_callback(self, variable_name, index, mode):
+        config1['NetworkPlay']['port'] = self._variable_port.get()
 
     def __init__(self, master=None, **kw):
         super().__init__(master, **kw)
-        self.frame = Frame(self)
-        self.row0 = Frame(self)
-        self.row0.pack()
-        self.label_enabled = Label(master = self.row0)
-        self.label_enabled.pack(side = LEFT)
-        self.checkbox_enabled = Checkbutton(master = self.row0)
-        self.checkbox_enabled.pack(side = LEFT)
+        current_row = 0
+        gridpady = int(config0['General']['gridpady'])
+        self._lan_game_enabled_last_value = False
+        
+        self._label_enabled = Label(master = self, text = lang['networkPlayText'])
+        self._label_enabled.grid(row = current_row, column = 0, pady = gridpady)
+        self._lan_game_enabled_var = tk.IntVar(self)
+        self._lan_game_enabled_var.set(eval(config1['NetworkPlay']['enabled']))
+        self._checkbox_enabled = Checkbutton(master = self, variable = self._lan_game_enabled_var, command = self._lan_game_switched)
+        self._checkbox_enabled.grid(row = current_row, column = 1)
+        current_row += 1
+
+        self._label_role = Label(master = self, text = lang['compRole'])
+        self._label_role.grid(row = current_row, column = 0, pady = gridpady)
+        self._role_texts = (lang['client'], lang['server'])
+        self._text_to_role = {self._role_texts[role]: role for role in range(len(self._role_texts))}
+        self._variable_role = tk.StringVar(self, self._role_texts[eval(config1['NetworkPlay']['is_server'])])
+        options = list(self._role_texts)
+        if OptionMenu != tk.OptionMenu:
+            options.insert(0, self._variable_role.get())
+        self._optionmenu_role = OptionMenu(self, self._variable_role, *options)
+        self._optionmenu_role.grid(row = current_row, column = 1)
+        current_row += 1
+
+        self._label_self_address = Label(master = self, text = lang['networkPlayIP1'])
+        self._label_self_address.grid(row = current_row, column = 0, pady = gridpady)
+        self._variable_self_address = tk.StringVar(self, config1['NetworkPlay']['self_ip'])
+        self._variable_self_address.trace('w', self._self_address_callback)
+        self._entry_self_address = Entry(self, width = 14, textvariable = self._variable_self_address)
+        self._entry_self_address.grid(row = current_row, column = 1)
+        current_row += 1
+
+        self._label_server_address = Label(master = self, text = lang['networkPlayIP2'])
+        self._label_server_address.grid(row = current_row, column = 0, pady = gridpady)
+        self._variable_server_address = tk.StringVar(self, config1['NetworkPlay']['server_ip'])
+        self._variable_server_address.trace('w', self._server_address_callback)
+        self._entry_server_address = Entry(self, width = 14, textvariable = self._variable_server_address)
+        self._entry_server_address.grid(row = current_row, column = 1)
+        current_row += 1
+
+        self._variable_role.trace('w', self._role_callback)
+
+        self._label_port = Label(master = self, text = lang['port'])
+        self._label_port.grid(row = current_row, column = 0, pady = gridpady)
+        self._variable_port = tk.StringVar(self, config1['NetworkPlay']['port'])
+        self._variable_port.trace('w', self._port_callback)
+        self._entry_port = Entry(self, width = WIDTH, textvariable = self._variable_port)
+        self._entry_port.grid(row = current_row, column = 1)
+        current_row += 1
+
+        #self._lan_game_switched()
 
 
 class AnimationEnabledCheckbox:
@@ -782,8 +884,8 @@ class AnimationEnabledCheckbox:
         self._enabled_value = tk.IntVar(frame, self._current_animation_config['enabled'])
         self._label = Label(frame, text = localization['animation_{}'.format(name)])
         self._checkbox = Checkbutton(frame, variable = self._enabled_value, command = self._value_changed)
-        self._label.grid(row = row_n, column = 0, padx = 3, pady = 3)
-        self._checkbox.grid(row = row_n, column = 1, padx = (0, 3), pady = 3)
+        self._label.grid(row = row_n, column = 0, padx = 3, pady = int(config0['General']['gridpady']))
+        self._checkbox.grid(row = row_n, column = 1, padx = (0, 3))
 
     def _value_changed(self):
         value = self._enabled_value.get()
@@ -829,7 +931,7 @@ general = Frame(frame)
 ntbk.add(general, text=lang['general'])
 mapSettings = Frame(frame)
 ntbk.add(mapSettings, text=lang['map'])
-network = TkLANGameSettingsFrame(frame)
+network = LANGameSettingsFrame(frame)
 ntbk.add(network, text=lang['networkPlay'])
 
 animations = AnimationsTab(frame, SectionProxy(config1, 'animations'), lang)
@@ -1064,14 +1166,13 @@ def addTank():
     makeTankTab(tankid)
     dec = True
 
-tabs = {}
-
 def removeTank(tankid):
     for i in range(len(tanklist) - 1, -1, -1):
         if tanklist[i] == tankid:
             tanklist.pop(i)
             break
     ntbk.forget(tabs[tankid])
+
 
 ais = eval(config0['General']['ais'])
 aiNames = [ais[ai] for ai in ais]
@@ -1233,6 +1334,10 @@ def makeTankTab(tankid):
 
 for tankid in tanklist:
     makeTankTab(tankid)
+
+
+network._lan_game_switched()
+
 
 addTankButton = Button(general, text = lang['addtankbutton'], command = addTank)
 addTankButton.grid(row = rowg, column = 0, columnspan = 3, pady = gridpady)
