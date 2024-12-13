@@ -782,7 +782,7 @@ class Tank:
                     self.texture.respawn()
                 except:
                     pass
-                startDestructionAnimation(*c.coords(self.segments[0].instance)[:2])
+                startDestructionAnimation(*(el - SEG_SIZE for el in c.coords(self.segments[0].instance)[:2]))
             self.segments = []
 
     def spawn(self, x, y, vector):
