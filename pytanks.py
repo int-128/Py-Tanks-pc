@@ -185,8 +185,11 @@ rec = None
 
 def close():
     global rec
-    if rec is not None:
-        rec.shutdown()
+    try:
+        if rec is not None:
+            rec.shutdown()
+    except:
+        pass
     terminate(root)
 
 
