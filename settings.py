@@ -433,6 +433,13 @@ class MapMenu(Frame):
     def get(self):
         return self.mapPathList[self.mapPathListPosition]
 
+    def configure(self, **kwargs):
+        if 'state' in kwargs:
+            self.leftButton.config(state = kwargs['state'])
+            self.rightButton.config(state = kwargs['state'])
+
+    config = configure
+
 
 class ColorMenu(Frame):
 
@@ -762,16 +769,38 @@ if colorScheme == 2:
 
 tabs = {}
 
-def enable_lan_game_settings():
+_lan_game_client_settings_enabled = False
+
+def enable_lan_game_client_settings():
+    global _lan_game_client_settings_enabled
+    if _lan_game_client_settings_enabled:
+        return
+    _lan_game_client_settings_enabled = True
+    
     for tankid in tabs:
         ntbk.forget(tabs[tankid])
     local_tankn = lang['tankn']
     lang['tankn'] = lang['tank_lan']
-    makeTankTab(config0['LANGame']['tankid'])
+    tab, widgets = makeTankTab(config0['LANGame']['tankid'])
     lang['tankn'] = local_tankn
 
-def disable_lan_game_settings():
-    global tabs, additionlTanks
+    widgets['remove_tank_button'].grid_forget()
+
+    ntbk.tab(1, state = 'disabled')
+
+    fieldWidthSB.configure(state = 'disabled')
+    fieldHeightSB.configure(state = 'disabled')
+    rspwnFtrDstrCheck.configure(state = 'disabled')
+    damageFromWallsCheck.configure(state = 'disabled')
+    addTankButton.configure(state = 'disabled')
+    
+
+def disable_lan_game_client_settings():
+    global tabs, additionlTanks, _lan_game_client_settings_enabled
+    if not _lan_game_client_settings_enabled:
+        return
+    _lan_game_client_settings_enabled = False
+    
     tab = tabs.pop(config0['LANGame']['tankid'])
     ntbk.forget(tab)
     tabs_copy = tabs.copy()
@@ -780,6 +809,14 @@ def disable_lan_game_settings():
     for tankid in tabs_copy:
         makeTankTab(tankid)
 
+    ntbk.tab(1, state = 'normal')
+
+    fieldWidthSB.configure(state = 'normal')
+    fieldHeightSB.configure(state = 'normal')
+    rspwnFtrDstrCheck.configure(state = 'normal')
+    damageFromWallsCheck.configure(state = 'normal')
+    addTankButton.configure(state = 'normal')
+
 
 class LANGameSettingsFrame(Frame):
 
@@ -787,14 +824,11 @@ class LANGameSettingsFrame(Frame):
         lan_game_enabled = bool(self._lan_game_enabled_var.get())
         config1['NetworkPlay']['enabled'] = str(lan_game_enabled)
         if lan_game_enabled:
-            if self._lan_game_enabled_last_value != lan_game_enabled:
-                enable_lan_game_settings()
-            self._optionmenu_role.config(state = 'enabled')
+            self._optionmenu_role.config(state = 'normal')
             self._role_callback()
-            self._entry_port.config(state = 'enabled')
+            self._entry_port.config(state = 'normal')
         else:
-            if self._lan_game_enabled_last_value != lan_game_enabled:
-                disable_lan_game_settings()
+            disable_lan_game_client_settings()
             self._optionmenu_role.config(state = 'disabled')
             self._entry_self_address.config(state = 'disabled')
             self._entry_server_address.config(state = 'disabled')
@@ -805,11 +839,13 @@ class LANGameSettingsFrame(Frame):
         role = self._text_to_role[self._variable_role.get()]
         config1['NetworkPlay']['is_server'] = str(bool(role))
         if role:
-            self._entry_self_address.config(state = 'enabled')
+            disable_lan_game_client_settings()
+            self._entry_self_address.config(state = 'normal')
             self._entry_server_address.config(state = 'disabled')
         else:
+            enable_lan_game_client_settings()
             self._entry_self_address.config(state = 'disabled')
-            self._entry_server_address.config(state = 'enabled')
+            self._entry_server_address.config(state = 'normal')
 
     def _self_address_callback(self, variable_name, index, mode):
         config1['NetworkPlay']['self_ip'] = self._variable_self_address.get()
@@ -871,8 +907,6 @@ class LANGameSettingsFrame(Frame):
         self._entry_port = Entry(self, width = WIDTH, textvariable = self._variable_port)
         self._entry_port.grid(row = current_row, column = 1)
         current_row += 1
-
-        #self._lan_game_switched()
 
 
 class AnimationEnabledCheckbox:
@@ -1120,13 +1154,6 @@ apply.pack(side=RIGHT, padx = (3, 7), pady = (0, 7))
 cancel.pack(side=RIGHT, padx = 3, pady = (0, 7))
 ok.pack(side=RIGHT, padx = (7, 3), pady = (0, 7))
 
-#Label(general, text = lang['animations']).grid(row = rowg, column = 0, pady = gridpady)
-#animations = BooleanVar()
-#animations.set(eval(config1['General']['animations']))
-#animationsCheck = Checkbutton(general, var = animations)
-#animationsCheck.grid(row = rowg, column = 1, pady = gridpady)
-#rowg += 1
-
 Label(general, text = lang['hpbartype']).grid(row = rowg, column = 0, pady = gridpady)
 hp_bar_types = [lang['hpbarstd'], lang['hpbarnew']]
 hp_bar_type = StringVar()
@@ -1212,7 +1239,7 @@ def makeTankTab(tankid):
     
     text = lang['tankn'].format(number = len(additionlTanks))
     
-    ntbk.add(tab, text = text)
+    tab_n = ntbk.add(tab, text = text)
 
     frame1_ = Frame(tab)
     frame1 = Frame(frame1_)
@@ -1331,17 +1358,31 @@ def makeTankTab(tankid):
     additionlTanks[tankid]['reload_time'] = reload_time
     rowt += 1
 
+    widgets = {
+        'main_frame': tab,
+        'settings_lower_frame': frame1_,
+        'settings_frame': frame1,
+        'textures_frame': frame2,
+        'control_menu_frame': control_menu_frame,
+        # ...
+        'remove_tank_button': removeTankButton,
+        # ...
+        }
+
+    return tab_n, widgets
+
 
 for tankid in tanklist:
     makeTankTab(tankid)
 
 
-network._lan_game_switched()
-
-
 addTankButton = Button(general, text = lang['addtankbutton'], command = addTank)
 addTankButton.grid(row = rowg, column = 0, columnspan = 3, pady = gridpady)
 rowg += 1
+
+
+network._lan_game_switched()
+
 
 dec = True
 dynamicElementsControl()
