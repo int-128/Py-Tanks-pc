@@ -784,6 +784,8 @@ def enable_lan_game_client_settings():
     tab, widgets = makeTankTab(config0['LANGame']['tankid'])
     lang['tankn'] = local_tankn
 
+    widgets['ai_label'].grid_forget()
+    widgets['ai_menu'].grid_forget()
     widgets['remove_tank_button'].grid_forget()
 
     ntbk.tab(1, state = 'disabled')
@@ -1289,7 +1291,7 @@ def makeTankTab(tankid):
     pass
     rowt += 1
 
-    Label(frame1, text = lang['ai']).grid(row = rowt, column = 0, pady = gridpady)
+    ai_label = Label(frame1, text = lang['ai']); ai_label.grid(row = rowt, column = 0, pady = gridpady)
     additionlTanks[tankid]['ai'] = StringVar()
     additionlTanks[tankid]['ai'].set(ais[tank['ai']])
     if colorScheme % 2 == 1:
@@ -1364,6 +1366,9 @@ def makeTankTab(tankid):
         'settings_frame': frame1,
         'textures_frame': frame2,
         'control_menu_frame': control_menu_frame,
+        # ...
+        'ai_label': ai_label,
+        'ai_menu': aiMemu,
         # ...
         'remove_tank_button': removeTankButton,
         # ...
