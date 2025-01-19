@@ -99,6 +99,7 @@ animation_damage="Попадание: "
 animation_destruction="Уничтожение: "
 animation_track="След: "
 tank_lan="Танк"
+ai21="ИИ 2.1"
 
 [Menu]
 title="Меню"

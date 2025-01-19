@@ -99,6 +99,7 @@ animation_damage="Damage: "
 animation_destruction="Destruction: "
 animation_track="Track: "
 tank_lan="Tank"
+ai21="AI 2.1"
 
 [Menu]
 title="Menu"
