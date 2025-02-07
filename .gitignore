@@ -160,5 +160,5 @@ cython_debug/
 #.idea/
 
 # Py Tanks configuration
-settings.ini
-settings.cfg
+#settings.ini
+#settings.cfg
